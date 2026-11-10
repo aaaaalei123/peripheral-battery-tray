@@ -155,6 +155,26 @@ def test_windows_bt_name_filter():
     assert reading.percent == 51
 
 
+def test_probe_presence_path_b_receiver_only():
+    def enum(vid, pid):
+        if vid == 0x3554 and pid == 0xFA09:
+            return [
+                {
+                    "path": "path-b-dongle",
+                    "usage_page": 0xFF02,
+                    "usage": 0x0002,
+                }
+            ]
+        return []
+
+    reader = MchoseKeyboardReader(
+        bt_reader=WindowsBluetoothBatteryReader(finder=lambda: []),
+        enumerate_fn=enum,
+        open_path_fn=lambda path: None,
+    )
+    assert reader.probe_presence() is True
+
+
 def test_try_read_dongle_compx_path():
     def enum(vid, pid):
         if vid == 0x3554:

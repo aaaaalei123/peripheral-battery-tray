@@ -266,7 +266,10 @@ def _try_read_dongle(
 
 def _dongle_interface_present(enumerate_fn: HidEnumerateFn) -> bool:
     for info in _enumerate_targets(((PATH_A_VID, PATH_A_PID),), enumerate_fn):
-        if _matches_path_a(info) or _matches_path_b(info):
+        if _matches_path_a(info):
+            return True
+    for info in _enumerate_targets(PATH_B_TARGETS, enumerate_fn):
+        if _matches_path_b(info):
             return True
     for info in _enumerate_targets(((PATH_C_VID, PATH_C_PID),), enumerate_fn):
         if _matches_path_c_private(info):
