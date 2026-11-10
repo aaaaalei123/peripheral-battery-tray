@@ -12,7 +12,7 @@ hiddenimports = [
     "pkg_resources.py2_warn",
 ]
 
-for pkg in ("hidapi", "winsdk", "pystray", "pythoncom", "pywintypes", "win32api", "win32gui"):
+for pkg in ("hidapi", "winsdk", "pystray", "win32com"):
     try:
         pkg_datas, pkg_binaries, pkg_hidden = collect_all(pkg)
         datas += pkg_datas
@@ -20,6 +20,15 @@ for pkg in ("hidapi", "winsdk", "pystray", "pythoncom", "pywintypes", "win32api"
         hiddenimports += pkg_hidden
     except Exception:
         pass
+
+hiddenimports += [
+    "pythoncom",
+    "pywintypes",
+    "win32api",
+    "win32gui",
+    "win32con",
+    "win32timezone",
+]
 
 a = Analysis(
     ["main.py"],
