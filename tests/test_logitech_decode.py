@@ -107,3 +107,15 @@ def test_probe_presence():
     )
     assert LogitechHidppReader(transport).probe_presence() is True
     assert LogitechHidppReader(_FakeTransport([bytes([0x10, 0x01, 0x00, 0x8F, 0x00, 0x00, 0x00])])).probe_presence() is False
+
+
+class _WriteRaisesTransport:
+    def write(self, data: bytes) -> None:
+        raise RuntimeError("transport write failed")
+
+    def read(self, timeout_ms: int = 500) -> bytes | None:
+        return None
+
+
+def test_read_returns_none_when_write_raises():
+    assert LogitechHidppReader(_WriteRaisesTransport()).read() is None

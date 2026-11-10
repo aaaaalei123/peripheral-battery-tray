@@ -124,11 +124,8 @@ def _exchange(
 ) -> Optional[bytes]:
     try:
         transport.write(request)
-    except OSError:
-        return None
-    try:
         return transport.read(timeout_ms=timeout_ms)
-    except OSError:
+    except Exception:
         return None
 
 
@@ -177,7 +174,7 @@ def open_logitech_hidpp_transport(
 
     try:
         candidates = hid.enumerate(vid, pid)
-    except OSError:
+    except Exception:
         return None
 
     for info in candidates:
@@ -190,7 +187,7 @@ def open_logitech_hidpp_transport(
                 dev.open_path(path)
                 dev.set_nonblocking(True)
                 return _HidapiTransport(dev)
-            except OSError:
+            except Exception:
                 continue
     return None
 
@@ -228,59 +225,65 @@ class LogitechHidppReader:
         self._transport = None
 
     def probe_presence(self) -> bool:
-        transport = self._ensure_transport()
-        if transport is None:
+        try:
+            transport = self._ensure_transport()
+            if transport is None:
+                return False
+            for feature_id in BATTERY_FEATURE_IDS:
+                idx = _get_feature_index(
+                    transport,
+                    self.device_index,
+                    feature_id,
+                    swid=self.swid,
+                    timeout_ms=self.timeout_ms,
+                )
+                if idx is not None:
+                    return True
             return False
-        for feature_id in BATTERY_FEATURE_IDS:
-            idx = _get_feature_index(
-                transport,
-                self.device_index,
-                feature_id,
-                swid=self.swid,
-                timeout_ms=self.timeout_ms,
-            )
-            if idx is not None:
-                return True
-        return False
+        except Exception:
+            return False
 
     def read(self) -> Optional[DeviceReading]:
-        transport = self._ensure_transport()
-        if transport is None:
+        try:
+            transport = self._ensure_transport()
+            if transport is None:
+                return None
+
+            for feature_id in BATTERY_FEATURE_IDS:
+                feature_index = _get_feature_index(
+                    transport,
+                    self.device_index,
+                    feature_id,
+                    swid=self.swid,
+                    timeout_ms=self.timeout_ms,
+                )
+                if feature_index is None:
+                    continue
+
+                request = build_battery_status_request(
+                    self.device_index,
+                    feature_index,
+                    feature_id,
+                    swid=self.swid,
+                )
+                response = _exchange(transport, request, timeout_ms=self.timeout_ms)
+                if response is None:
+                    continue
+
+                percent, charging = decode_battery_report(feature_id, response)
+                if percent is None:
+                    continue
+
+                note = f"hid++ feature=0x{feature_id:04X}"
+                return DeviceReading(
+                    device_id=DeviceId.MOUSE,
+                    percent=percent,
+                    charging=charging,
+                    connection=ConnectionKind.LIGHTSPEED,
+                    presence=DevicePresence.ONLINE,
+                    raw_note=note,
+                )
+
             return None
-
-        for feature_id in BATTERY_FEATURE_IDS:
-            feature_index = _get_feature_index(
-                transport,
-                self.device_index,
-                feature_id,
-                swid=self.swid,
-                timeout_ms=self.timeout_ms,
-            )
-            if feature_index is None:
-                continue
-
-            request = build_battery_status_request(
-                self.device_index,
-                feature_index,
-                feature_id,
-                swid=self.swid,
-            )
-            response = _exchange(transport, request, timeout_ms=self.timeout_ms)
-            if response is None:
-                continue
-
-            percent, charging = decode_battery_report(feature_id, response)
-            if percent is None:
-                continue
-
-            note = f"hid++ feature=0x{feature_id:04X}"
-            return DeviceReading(
-                device_id=DeviceId.MOUSE,
-                percent=percent,
-                charging=charging,
-                connection=ConnectionKind.LIGHTSPEED,
-                presence=DevicePresence.ONLINE,
-                raw_note=note,
-            )
-
-        return None
+        except Exception:
+            return None
