@@ -8,12 +8,16 @@ _ICON_SIZE = 64
 _SUPERSAMPLE = 4
 _CANVAS = _ICON_SIZE * _SUPERSAMPLE
 
-_LOW_PERCENT = 15
 _WARN_PERCENT = 30
 
 
 def _ring_colors(
-    percent: int, sleeping: bool, light_theme: bool
+    percent: int,
+    sleeping: bool,
+    light_theme: bool,
+    *,
+    low_battery_percent: int = 15,
+    warn_battery_percent: int = _WARN_PERCENT,
 ) -> Tuple[Tuple[int, int, int, int], Tuple[int, int, int, int]]:
     """Return (track_rgba, fill_rgba) for the ring."""
     if sleeping:
@@ -25,9 +29,11 @@ def _ring_colors(
             fill = (150, 150, 150, 255)
         return track, fill
 
-    if percent <= _LOW_PERCENT:
+    low = max(0, min(100, int(low_battery_percent)))
+    warn = max(low + 1, min(100, int(warn_battery_percent)))
+    if percent <= low:
         fill = (220, 55, 55, 255) if not light_theme else (200, 40, 40, 255)
-    elif percent < _WARN_PERCENT:
+    elif percent < warn:
         fill = (235, 190, 45, 255) if not light_theme else (210, 150, 20, 255)
     else:
         fill = (75, 200, 95, 255) if not light_theme else (35, 140, 55, 255)
@@ -71,6 +77,8 @@ def render_tray_icon(
     charging: bool,
     sleeping: bool,
     light_theme: bool,
+    low_battery_percent: int = 15,
+    warn_battery_percent: int = _WARN_PERCENT,
 ) -> Image.Image:
     """Render a 64×64 RGBA tray icon: ring fill, centered percent, optional charge badge."""
     pct = max(0, min(100, int(percent)))
@@ -82,7 +90,13 @@ def render_tray_icon(
     bbox = (margin, margin, _CANVAS - margin, _CANVAS - margin)
     track_w = max(2, _CANVAS // 10)
 
-    track_color, fill_color = _ring_colors(pct, sleeping, light_theme)
+    track_color, fill_color = _ring_colors(
+        pct,
+        sleeping,
+        light_theme,
+        low_battery_percent=low_battery_percent,
+        warn_battery_percent=warn_battery_percent,
+    )
     draw.arc(bbox, start=0, end=359.9, fill=track_color, width=track_w)
 
     if pct > 0:

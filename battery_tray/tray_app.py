@@ -2,8 +2,12 @@ from __future__ import annotations
 
 import sys
 import threading
+import time
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Optional
+
+from PIL import Image
 
 from battery_tray.config import AppConfig, load_config, save_config
 from battery_tray.icon import render_tray_icon
@@ -48,6 +52,8 @@ def detect_light_theme() -> bool:
 
 
 def _autostart_command() -> str:
+    if getattr(sys, "frozen", False):
+        return f'"{sys.executable}"'
     exe = Path(sys.executable)
     if exe.name.lower().endswith("python.exe"):
         launcher = exe.with_name("pythonw.exe")
@@ -124,6 +130,33 @@ def _icon_reading(readings: dict[DeviceId, DeviceReading], icon_device: str) -> 
     )
 
 
+@dataclass
+class _UiBridge:
+    """Latest tray visuals/notifications from any thread; applied only on the tick loop."""
+
+    _lock: threading.Lock = field(default_factory=threading.Lock)
+    _image: Optional[Image.Image] = None
+    _title: Optional[str] = None
+    _notifies: list[tuple[str, str]] = field(default_factory=list)
+    _version: int = 0
+
+    def publish_icon(self, image: Image.Image, title: str) -> None:
+        with self._lock:
+            self._image = image
+            self._title = title
+            self._version += 1
+
+    def publish_notify(self, title: str, message: str) -> None:
+        with self._lock:
+            self._notifies.append((title, message))
+
+    def poll(self) -> tuple[Optional[Image.Image], Optional[str], list[tuple[str, str]], int]:
+        with self._lock:
+            notes = self._notifies
+            self._notifies = []
+            return self._image, self._title, notes, self._version
+
+
 class TrayApp:
     def __init__(
         self,
@@ -136,6 +169,8 @@ class TrayApp:
         self._readings: dict[DeviceId, DeviceReading] = {}
         self._low_notified: set[DeviceId] = set()
         self._ui_lock = threading.Lock()
+        self._bridge = _UiBridge()
+        self._tick_running = False
         self._icon: Optional[object] = None
 
         if monitor_factory is not None:
@@ -151,14 +186,13 @@ class TrayApp:
     def _on_monitor_update(self, readings: dict[DeviceId, DeviceReading]) -> None:
         with self._ui_lock:
             self._readings = readings
-        self._refresh_icon()
+        self._publish_tray_state()
         self._check_low_battery(readings)
 
     def _check_low_battery(self, readings: dict[DeviceId, DeviceReading]) -> None:
         if not self.cfg.notify_low_battery:
             return
         threshold = self.cfg.low_battery_percent
-        icon = self._icon
         for did, reading in readings.items():
             pct = reading.percent
             if pct is None:
@@ -168,22 +202,14 @@ class TrayApp:
                 continue
             if did in self._low_notified:
                 continue
-            if icon is None:
-                continue
             label = _DEVICE_LABEL[did]
-            try:
-                icon.notify(  # type: ignore[attr-defined]
-                    f"{label}电量低",
-                    f"{label}剩余 {pct}%（阈值 {threshold}%）",
-                )
-            except Exception:
-                pass
+            self._bridge.publish_notify(
+                f"{label}电量低",
+                f"{label}剩余 {pct}%（阈值 {threshold}%）",
+            )
             self._low_notified.add(did)
 
-    def _refresh_icon(self) -> None:
-        icon = self._icon
-        if icon is None:
-            return
+    def _publish_tray_state(self) -> None:
         with self._ui_lock:
             readings = dict(self._readings)
         ir = _icon_reading(readings, self.cfg.icon_device)
@@ -195,14 +221,42 @@ class TrayApp:
             charging=charging,
             sleeping=sleeping,
             light_theme=self._light_theme,
+            low_battery_percent=self.cfg.low_battery_percent,
         )
-        icon.icon = image  # type: ignore[attr-defined]
-        icon.title = _tooltip_line(readings)  # type: ignore[attr-defined]
+        self._bridge.publish_icon(image, _tooltip_line(readings))
+
+    def _start_ui_tick(self, icon: object) -> None:
+        self._tick_running = True
+
+        def tick_loop() -> None:
+            last_version = -1
+            while self._tick_running:
+                image, title, notes, version = self._bridge.poll()
+                if image is not None and version != last_version:
+                    try:
+                        icon.icon = image  # type: ignore[attr-defined]
+                        if title is not None:
+                            icon.title = title  # type: ignore[attr-defined]
+                        try:
+                            icon.update_menu()  # type: ignore[attr-defined]
+                        except Exception:
+                            pass
+                        last_version = version
+                    except Exception:
+                        pass
+                for note_title, note_body in notes:
+                    try:
+                        icon.notify(note_title, note_body)  # type: ignore[attr-defined]
+                    except Exception:
+                        pass
+                time.sleep(0.25)
+
+        threading.Thread(target=tick_loop, daemon=True, name="tray-ui-tick").start()
 
     def _set_icon_device(self, device: str) -> None:
         self.cfg.icon_device = device
         save_config(self.cfg)
-        self._refresh_icon()
+        self._publish_tray_state()
 
     def _set_poll_interval(self, sec: int) -> None:
         self.cfg.poll_interval_sec = sec
@@ -213,6 +267,7 @@ class TrayApp:
         self.cfg.low_battery_percent = pct
         save_config(self.cfg)
         self._low_notified.clear()
+        self._publish_tray_state()
 
     def _toggle_notify(self) -> None:
         self.cfg.notify_low_battery = not self.cfg.notify_low_battery
@@ -329,6 +384,7 @@ class TrayApp:
         )
 
     def _shutdown(self, icon: object) -> None:
+        self._tick_running = False
         self._monitor.stop()
         try:
             icon.stop()  # type: ignore[attr-defined]
@@ -350,6 +406,7 @@ class TrayApp:
             charging=False,
             sleeping=True,
             light_theme=self._light_theme,
+            low_battery_percent=self.cfg.low_battery_percent,
         )
         self._icon = pystray.Icon(
             "peripheral-battery",
@@ -357,8 +414,14 @@ class TrayApp:
             _tooltip_line({}),
             menu=self._build_menu(),
         )
-        self._refresh_icon()
+        self._publish_tray_state()
+
+        def setup(icon: object) -> None:
+            icon.visible = True  # type: ignore[attr-defined]
+            self._start_ui_tick(icon)
+
         try:
-            self._icon.run()  # type: ignore[attr-defined]
+            self._icon.run(setup=setup)  # type: ignore[attr-defined]
         finally:
+            self._tick_running = False
             self._monitor.stop()
