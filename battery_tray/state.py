@@ -43,6 +43,8 @@ class DeviceScheduler:
             st.wake_immediate_poll = False
         else:
             st.presence = DevicePresence.SLEEPING
+            st.force_battery_poll = False
+            st.wake_immediate_poll = False
 
     def on_presence_probe(self, device: DeviceId, *, present: bool) -> None:
         st = self._devices[device]

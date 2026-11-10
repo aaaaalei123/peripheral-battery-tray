@@ -45,3 +45,12 @@ def test_read_success_from_sleeping_emits_wake():
     s.on_read_result(DeviceId.KEYBOARD, success=False)
     s.on_read_result(DeviceId.KEYBOARD, success=True)
     assert s.consume_wake_events() == [DeviceId.KEYBOARD]
+
+
+def test_force_poll_while_sleeping_consumed_on_failed_read():
+    s = DeviceScheduler(poll_interval_sec=60)
+    s.on_read_result(DeviceId.MOUSE, success=False)
+    s.force_poll(DeviceId.MOUSE)
+    assert s.should_poll_battery(DeviceId.MOUSE) is True
+    s.on_read_result(DeviceId.MOUSE, success=False)
+    assert s.should_poll_battery(DeviceId.MOUSE) is False
