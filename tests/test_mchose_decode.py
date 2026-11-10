@@ -155,6 +155,29 @@ def test_windows_bt_name_filter():
     assert reading.percent == 51
 
 
+def test_windows_bt_probe_requires_battery_percent():
+    name_only = WindowsBluetoothBatteryReader(
+        finder=lambda: [
+            {"name": "MCHOSE G87", "properties": {}},
+        ]
+    )
+    assert name_only.probe_keyboard() is False
+    assert name_only.read_keyboard() is None
+
+    with_battery = WindowsBluetoothBatteryReader(
+        finder=lambda: [
+            {
+                "name": "MCHOSE G87",
+                "properties": {
+                    "System.Devices.Aep.Battery.ChargePercentage": 72,
+                },
+            }
+        ]
+    )
+    assert with_battery.probe_keyboard() is True
+    assert with_battery.read_keyboard() is not None
+
+
 def test_probe_presence_path_b_receiver_only():
     def enum(vid, pid):
         if vid == 0x3554 and pid == 0xFA09:

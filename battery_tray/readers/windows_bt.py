@@ -114,7 +114,10 @@ class WindowsBluetoothBatteryReader:
         try:
             for entry in self._finder():
                 name = str(entry.get("name") or "")
-                if _name_matches_keyboard(name):
+                if not _name_matches_keyboard(name):
+                    continue
+                props = entry.get("properties") or {}
+                if _percent_from_properties(props) is not None:
                     return True
             return False
         except Exception:
