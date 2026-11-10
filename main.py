@@ -79,6 +79,23 @@ def run_probe() -> None:
     print("\n完成。")
 
 
+def _ensure_console_for_probe() -> None:
+    """Windowed PyInstaller builds have no console; attach one for --probe."""
+    if sys.platform != "win32" or not getattr(sys, "frozen", False):
+        return
+    try:
+        import ctypes
+
+        if ctypes.windll.kernel32.GetConsoleWindow():
+            return
+        ctypes.windll.kernel32.AllocConsole()
+        sys.stdout = open("CONOUT$", "w", encoding="utf-8", errors="replace")
+        sys.stderr = open("CONOUT$", "w", encoding="utf-8", errors="replace")
+        sys.stdin = open("CONIN$", "r", encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="外设电量托盘")
     parser.add_argument(
@@ -89,7 +106,13 @@ def main(argv: list[str] | None = None) -> None:
     args = parser.parse_args(argv)
 
     if args.probe:
+        _ensure_console_for_probe()
         run_probe()
+        if getattr(sys, "frozen", False) and sys.platform == "win32":
+            try:
+                input("\n按回车键关闭…")
+            except EOFError:
+                pass
         return
 
     from battery_tray.tray_app import TrayApp

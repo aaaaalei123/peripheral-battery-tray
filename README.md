@@ -39,14 +39,31 @@ python main.py --probe
 
 插入接收器后的端到端检查项、`--probe` 输出解读与 G HUB/休眠/VID 等问题排查，见 **[WINDOWS_VERIFY.md](WINDOWS_VERIFY.md)**。
 
-## 可选：PyInstaller 打包
+## 打包成 exe（必须在 Windows 上）
 
-```bash
-pip install pyinstaller
-pyinstaller --onefile --windowed --name PeripheralBattery main.py
+不能在 macOS 上交叉打 Windows exe。把整个 `peripheral-battery-tray` 文件夹拷到 Windows 后：
+
+```bat
+build_windows.bat
 ```
 
-建议在 Windows 上打包，以便包含 `hidapi` 与 `winsdk`。
+或手动：
+
+```bat
+pip install -r requirements.txt pyinstaller
+pyinstaller --noconfirm PeripheralBattery.spec
+```
+
+产物：`dist\PeripheralBattery.exe`（单文件、无控制台窗口）。
+
+```bat
+dist\PeripheralBattery.exe
+dist\PeripheralBattery.exe --probe
+```
+
+`--probe` 在打包版里会临时弹出控制台显示诊断信息。开机自启会直接注册该 exe 路径。
+
+首次运行若被 Windows Defender / SmartScreen 拦截，选「仍要运行」即可（未签名的本地打包常见现象）。
 
 ## 支持的设备
 
