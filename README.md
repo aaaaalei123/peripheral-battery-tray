@@ -35,6 +35,10 @@ python main.py --probe
 
 会打印已知 VID/PID 的 HID 接口，以及两台 reader 的 `probe_presence` / `read` 结果。
 
+## Windows 实机自检
+
+插入接收器后的端到端检查项、`--probe` 输出解读与 G HUB/休眠/VID 等问题排查，见 **[WINDOWS_VERIFY.md](WINDOWS_VERIFY.md)**。
+
 ## 可选：PyInstaller 打包
 
 ```bash
