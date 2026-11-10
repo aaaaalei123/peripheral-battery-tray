@@ -72,6 +72,9 @@ class DeviceScheduler:
     def force_poll(self, device: DeviceId) -> None:
         self._devices[device].force_battery_poll = True
 
+    def set_poll_interval(self, poll_interval_sec: float) -> None:
+        self._poll_interval_sec = poll_interval_sec
+
     def consume_wake_events(self) -> list[DeviceId]:
         events = list(self._wake_events)
         self._wake_events.clear()
