@@ -63,16 +63,17 @@ dist\PeripheralBattery.exe --probe
 
 ### 打包闪退 / 失败时
 
-1. 确认已装 **Python 3.10+**，安装勾选 **Add python.exe to PATH**  
-   下载：https://www.python.org/downloads/
-2. 新开 cmd 执行：`py -3 --version` 或 `python --version`  
-   若提示找不到命令，就是环境未就绪，不是 bat 本身坏了。
-3. 看同目录 `build_log.txt` 和窗口里的红色报错。
-4. 也可手动：
+1. 请装 **Python 3.12**（推荐；也支持 3.10 / 3.11）。**不要用 3.14**：很多依赖还没有对应 wheel，pip 会失败。  
+   下载：https://www.python.org/downloads/release/python-31210/  
+   安装勾选 **Add python.exe to PATH**
+2. 新开 cmd 执行：`py -3.12 --version`  
+   若提示找不到命令，就是环境未就绪。
+3. 看同目录 `build_log.txt` 和窗口报错。
+4. 也可手动指定 3.12：
 
 ```bat
-py -3 -m pip install -r requirements.txt pyinstaller
-py -3 -m PyInstaller --noconfirm PeripheralBattery.spec
+py -3.12 -m pip install -r requirements.txt pyinstaller
+py -3.12 -m PyInstaller --noconfirm PeripheralBattery.spec
 ```
 
 `--probe` 在打包版里会临时弹出控制台。开机自启会注册该 exe。  
