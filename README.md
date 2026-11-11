@@ -43,27 +43,38 @@ python main.py --probe
 
 不能在 macOS 上交叉打 Windows exe。把整个 `peripheral-battery-tray` 文件夹拷到 Windows 后：
 
+**推荐先开 cmd，再运行**（比双击更容易看清报错）：
+
 ```bat
+cd /d 你的路径\peripheral-battery-tray
 build_windows.bat
 ```
 
-或手动：
+或双击 `build_windows.bat`：脚本结束会 `pause`，不会再一闪而过。
 
-```bat
-pip install -r requirements.txt pyinstaller
-pyinstaller --noconfirm PeripheralBattery.spec
-```
-
-产物：`dist\PeripheralBattery.exe`（单文件、无控制台窗口）。
+产物：`dist\PeripheralBattery.exe`
 
 ```bat
 dist\PeripheralBattery.exe
 dist\PeripheralBattery.exe --probe
 ```
 
-`--probe` 在打包版里会临时弹出控制台显示诊断信息。开机自启会直接注册该 exe 路径。
+### 打包闪退 / 失败时
 
-首次运行若被 Windows Defender / SmartScreen 拦截，选「仍要运行」即可（未签名的本地打包常见现象）。
+1. 确认已装 **Python 3.10+**，安装勾选 **Add python.exe to PATH**  
+   下载：https://www.python.org/downloads/
+2. 新开 cmd 执行：`py -3 --version` 或 `python --version`  
+   若提示找不到命令，就是环境未就绪，不是 bat 本身坏了。
+3. 看同目录 `build_log.txt` 和窗口里的红色报错。
+4. 也可手动：
+
+```bat
+py -3 -m pip install -r requirements.txt pyinstaller
+py -3 -m PyInstaller --noconfirm PeripheralBattery.spec
+```
+
+`--probe` 在打包版里会临时弹出控制台。开机自启会注册该 exe。  
+首次运行若被 SmartScreen 拦截，选「仍要运行」即可。
 
 ## 支持的设备
 
