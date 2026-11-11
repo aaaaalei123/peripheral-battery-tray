@@ -52,6 +52,8 @@ build_windows.bat
 
 或双击 `build_windows.bat`：脚本结束会 `pause`，不会再一闪而过。
 
+> 注意：`build_windows.bat` 必须是 **英文 ASCII + CRLF**。若用记事本另存成 UTF-8，或在 Mac 上改坏换行，cmd 会出现 `'echo' 不是内部或外部命令`、乱码中文被拆成命令等怪错。请直接用仓库里的文件，不要改编码。
+
 产物：`dist\PeripheralBattery.exe`
 
 ```bat
