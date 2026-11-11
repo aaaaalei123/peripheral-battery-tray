@@ -4,7 +4,8 @@ from typing import Tuple
 
 from PIL import Image, ImageDraw, ImageFont
 
-_ICON_SIZE = 64
+# Larger source helps HiDPI Windows tray scaling stay sharp.
+_ICON_SIZE = 128
 _SUPERSAMPLE = 4
 _CANVAS = _ICON_SIZE * _SUPERSAMPLE
 
@@ -49,7 +50,18 @@ def _text_color(sleeping: bool, light_theme: bool) -> Tuple[int, int, int, int]:
 
 
 def _load_font(size: int) -> ImageFont.ImageFont:
-    for name in ("arial.ttf", "Arial.ttf", "DejaVuSans.ttf"):
+    # Prefer bold faces so digits stay readable after tray downscale.
+    candidates = (
+        "segoeuib.ttf",  # Segoe UI Bold (Windows)
+        "SegoeUI-Bold.ttf",
+        "arialbd.ttf",
+        "Arial Bold.ttf",
+        "DejaVuSans-Bold.ttf",
+        "arial.ttf",
+        "Arial.ttf",
+        "DejaVuSans.ttf",
+    )
+    for name in candidates:
         try:
             return ImageFont.truetype(name, size)
         except OSError:
@@ -80,15 +92,16 @@ def render_tray_icon(
     low_battery_percent: int = 15,
     warn_battery_percent: int = _WARN_PERCENT,
 ) -> Image.Image:
-    """Render a 64×64 RGBA tray icon: ring fill, centered percent, optional charge badge."""
+    """Render a high-res RGBA tray icon: thick ring, bold percent, optional charge badge."""
     pct = max(0, min(100, int(percent)))
 
     img = Image.new("RGBA", (_CANVAS, _CANVAS), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
 
-    margin = _CANVAS * 6 // 64
+    # Fill more of the canvas; thicker stroke survives tray downscaling.
+    margin = _CANVAS * 4 // 64
     bbox = (margin, margin, _CANVAS - margin, _CANVAS - margin)
-    track_w = max(2, _CANVAS // 10)
+    track_w = max(4, _CANVAS * 9 // 64)
 
     track_color, fill_color = _ring_colors(
         pct,
@@ -104,17 +117,33 @@ def render_tray_icon(
         draw.arc(bbox, start=-90, end=-90 + sweep, fill=fill_color, width=track_w)
 
     label = str(pct)
-    font_size = _CANVAS * 22 // 64
+    # Slightly smaller for "100" so it doesn't clip the ring.
+    font_size = _CANVAS * (20 if pct >= 100 else 26) // 64
     font = _load_font(font_size)
     text_color = _text_color(sleeping, light_theme)
+    outline = (0, 0, 0, 180) if not light_theme else (255, 255, 255, 200)
+
     tw, th = draw.textbbox((0, 0), label, font=font)[2:]
     tx = (_CANVAS - tw) // 2
-    ty = (_CANVAS - th) // 2 - font_size // 8
+    ty = (_CANVAS - th) // 2 - font_size // 10
+
+    # Soft outline for contrast on both light and dark taskbars.
+    for dx, dy in (
+        (-2, 0),
+        (2, 0),
+        (0, -2),
+        (0, 2),
+        (-2, -2),
+        (2, -2),
+        (-2, 2),
+        (2, 2),
+    ):
+        draw.text((tx + dx, ty + dy), label, fill=outline, font=font)
     draw.text((tx, ty), label, fill=text_color, font=font)
 
     if charging and not sleeping:
-        pad = _CANVAS // 16
-        side = _CANVAS // 5
+        pad = _CANVAS // 18
+        side = _CANVAS // 4
         bolt_box = (_CANVAS - side - pad, _CANVAS - side - pad, _CANVAS - pad, _CANVAS - pad)
         _draw_lightning(draw, bolt_box)
 

@@ -3,7 +3,7 @@ from battery_tray.icon import _ring_colors, render_tray_icon
 
 def test_icon_size():
     img = render_tray_icon(72, charging=False, sleeping=False, light_theme=False)
-    assert img.size == (64, 64)
+    assert img.size == (128, 128)
     assert img.mode == "RGBA"
 
 
@@ -26,4 +26,5 @@ def test_render_tray_icon_passes_low_threshold():
         light_theme=False,
         low_battery_percent=20,
     )
-    assert img.getpixel((32, 8))[0] > 100
+    # Sample near top of ring on 128×128 canvas.
+    assert img.getpixel((64, 10))[0] > 100
