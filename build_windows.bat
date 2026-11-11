@@ -58,15 +58,8 @@ goto have_python
 
 :no_python
 echo [ERROR] Python not found in PATH.
-echo.
-echo Install Python 3.12 from https://www.python.org/downloads/release/python-31210/
-echo Check "Add python.exe to PATH" during setup.
-echo Then open a NEW cmd window and run this script again.
-echo.
-echo Quick check:
-echo   py -3.12 --version
-echo   python --version
-echo.
+echo Install Python 3.12 from python.org and check Add to PATH.
+echo Then open a NEW cmd and run: py -3.12 --version
 goto end_fail
 
 :have_python
@@ -74,38 +67,35 @@ echo Using: %PY_CMD% %PY_ARGS%
 %PY_CMD% %PY_ARGS% -c "import sys; print('Python', sys.version)"
 if errorlevel 1 goto end_fail
 
-rem Require 3.10-3.12 for reliable wheels.
-%PY_CMD% %PY_ARGS% -c "import sys; v=sys.version_info; print('version_tuple', v[:3]); raise SystemExit(0 if (v.major==3 and 10<=v.minor<=12) else 2)" >> "%LOG%" 2>&1
+%PY_CMD% %PY_ARGS% -c "import sys; v=sys.version_info; print(v[:3]); raise SystemExit(0 if (v.major==3 and 10<=v.minor<=12) else 2)" >> "%LOG%" 2>&1
 if errorlevel 1 goto bad_version
 goto version_ok
 
 :bad_version
 echo.
-echo [ERROR] Unsupported Python version for this build.
-echo Need Python 3.10 / 3.11 / 3.12. Python 3.14 is too new for hidapi/winsdk/pywin32 wheels.
-echo.
-echo Fix:
-echo   1. Install Python 3.12: https://www.python.org/downloads/release/python-31210/
-echo   2. Open a NEW cmd
-echo   3. Run: py -3.12 --version
-echo   4. Run this script again. It prefers 3.12 automatically.
-echo.
+echo [ERROR] Unsupported Python version.
+echo Need 3.10 or 3.11 or 3.12. Do NOT use 3.13 or 3.14.
+echo Install 3.12, open NEW cmd, then run this script again.
+echo It will auto-pick py -3.12 when available.
 goto end_fail
 
 :version_ok
-
-
 echo.
 echo [1/3] Installing runtime + PyInstaller...
+echo NOTE: winsdk is optional now. 2.4G keyboard + GPW work without it.
 echo ----- pip upgrade ----- >> "%LOG%"
 %PY_CMD% %PY_ARGS% -m pip install --upgrade pip >> "%LOG%" 2>&1
 echo ----- pip install requirements ----- >> "%LOG%"
 %PY_CMD% %PY_ARGS% -m pip install -r requirements.txt pyinstaller >> "%LOG%" 2>&1
+if errorlevel 1 goto pip_fail
+
+echo ----- optional winsdk for Bluetooth ----- >> "%LOG%"
+%PY_CMD% %PY_ARGS% -m pip install -r requirements-bt.txt >> "%LOG%" 2>&1
 if errorlevel 1 (
-  echo [ERROR] pip install failed. Showing build_log.txt:
-  echo.
-  type "%LOG%"
-  goto end_fail
+  echo [WARN] winsdk install skipped or failed. Bluetooth battery disabled.
+  echo [WARN] GPW mouse and G87 2.4G keyboard still work.
+) else (
+  echo winsdk installed. Bluetooth keyboard battery enabled.
 )
 
 echo.
@@ -117,26 +107,32 @@ echo.
 echo [3/3] Building PeripheralBattery.exe ...
 echo ----- pyinstaller ----- >> "%LOG%"
 %PY_CMD% %PY_ARGS% -m PyInstaller --noconfirm PeripheralBattery.spec >> "%LOG%" 2>&1
-if errorlevel 1 (
-  echo [ERROR] PyInstaller failed. Last log lines:
-  powershell -NoProfile -Command "Get-Content -Path '%LOG%' -Tail 40"
-  goto end_fail
-)
+if errorlevel 1 goto pyi_fail
 
-if not exist "dist\PeripheralBattery.exe" (
-  echo [ERROR] Build finished but dist\PeripheralBattery.exe is missing.
-  goto end_fail
-)
+if not exist "dist\PeripheralBattery.exe" goto missing_exe
 
 echo.
 echo ===== SUCCESS =====
 echo EXE: %CD%\dist\PeripheralBattery.exe
-echo.
 echo Run:   dist\PeripheralBattery.exe
 echo Probe: dist\PeripheralBattery.exe --probe
 echo.
 pause
 exit /b 0
+
+:pip_fail
+echo [ERROR] pip install failed. See build_log.txt
+powershell -NoProfile -Command "Get-Content -Path '%LOG%' -Tail 50"
+goto end_fail
+
+:pyi_fail
+echo [ERROR] PyInstaller failed. See build_log.txt
+powershell -NoProfile -Command "Get-Content -Path '%LOG%' -Tail 50"
+goto end_fail
+
+:missing_exe
+echo [ERROR] dist\PeripheralBattery.exe missing after build.
+goto end_fail
 
 :end_fail
 echo.

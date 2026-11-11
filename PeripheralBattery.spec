@@ -12,7 +12,7 @@ hiddenimports = [
     "pkg_resources.py2_warn",
 ]
 
-for pkg in ("hidapi", "winsdk", "pystray", "win32com"):
+for pkg in ("hidapi", "pystray", "win32com", "winsdk"):
     try:
         pkg_datas, pkg_binaries, pkg_hidden = collect_all(pkg)
         datas += pkg_datas

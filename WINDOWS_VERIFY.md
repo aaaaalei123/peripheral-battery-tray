@@ -4,7 +4,7 @@
 
 ## 前置条件
 
-1. Python 3.10+，已执行 `pip install -r requirements.txt`（Windows 会安装 `hidapi`、`winsdk`）。
+1. Python 3.10–3.12（推荐 3.12），已执行 `pip install -r requirements.txt`。蓝牙电量可选再装 `requirements-bt.txt`。
 2. 接收器已插入，鼠标/键盘已配对并处于 2.4G 连接（非仅蓝牙，除非 intentionally 测蓝牙路径）。
 3. 建议先关闭占用 HID 接收器的软件（见「故障排查」），再启动应用。
 

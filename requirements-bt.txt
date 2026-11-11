@@ -1,0 +1,3 @@
+# Optional: keyboard Bluetooth battery on Windows.
+# Needs a Python with prebuilt winsdk wheels (3.10-3.12). Skip if you only use 2.4G.
+winsdk>=1.0.0b10

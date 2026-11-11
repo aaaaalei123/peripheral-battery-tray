@@ -13,7 +13,7 @@ Windows 系统托盘常驻应用：合并显示 **迈从 G87 V2 键盘** 与 **�
 pip install -r requirements.txt
 ```
 
-在 macOS 上可省略 `winsdk`（`requirements.txt` 已按平台标记）；托盘需 `pystray` 与 `Pillow`。
+核心依赖不含 `winsdk`。2.4G 键盘 + GPW 鼠标不需要它；只有键盘走蓝牙读电量时才可选安装 `requirements-bt.txt`（需 Python 3.10–3.12 的现成 wheel）。
 
 ## 运行
 
