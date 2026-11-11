@@ -296,39 +296,85 @@ class TrayApp:
     def _build_menu(self) -> object:
         import pystray
 
+        # pystray only accepts actions with 0/1/2 parameters. Do NOT use
+        # `lambda icon, item, x=x: ...` (co_argcount becomes 3 → ValueError).
+
         def checked_icon_device(device: str):
-            return lambda item: self.cfg.icon_device == device
+            def _checked(item: object) -> bool:
+                return self.cfg.icon_device == device
+
+            return _checked
 
         def checked_poll(sec: int):
-            return lambda item: self.cfg.poll_interval_sec == sec
+            def _checked(item: object) -> bool:
+                return self.cfg.poll_interval_sec == sec
+
+            return _checked
 
         def checked_threshold(pct: int):
-            return lambda item: self.cfg.low_battery_percent == pct
+            def _checked(item: object) -> bool:
+                return self.cfg.low_battery_percent == pct
+
+            return _checked
+
+        def on_icon_device(device: str):
+            def _action(icon: object, item: object) -> None:
+                self._set_icon_device(device)
+
+            return _action
+
+        def on_threshold(pct: int):
+            def _action(icon: object, item: object) -> None:
+                self._set_low_threshold(pct)
+
+            return _action
+
+        def on_poll(sec: int):
+            def _action(icon: object, item: object) -> None:
+                self._set_poll_interval(sec)
+
+            return _action
+
+        def keyboard_status(item: object) -> str:
+            return self._status_text(DeviceId.KEYBOARD)
+
+        def mouse_status(item: object) -> str:
+            return self._status_text(DeviceId.MOUSE)
+
+        def on_toggle_notify(icon: object, item: object) -> None:
+            self._toggle_notify()
+
+        def notify_checked(item: object) -> bool:
+            return self.cfg.notify_low_battery
+
+        def on_toggle_autostart(icon: object, item: object) -> None:
+            self._toggle_autostart()
+
+        def autostart_checked(item: object) -> bool:
+            return self.cfg.start_with_windows
+
+        def on_refresh(icon: object, item: object) -> None:
+            self._monitor.request_refresh()
+
+        def on_quit(icon: object, item: object) -> None:
+            self._shutdown(icon)
 
         return pystray.Menu(
-            pystray.MenuItem(
-                lambda item: self._status_text(DeviceId.KEYBOARD),
-                None,
-                enabled=False,
-            ),
-            pystray.MenuItem(
-                lambda item: self._status_text(DeviceId.MOUSE),
-                None,
-                enabled=False,
-            ),
+            pystray.MenuItem(keyboard_status, None, enabled=False),
+            pystray.MenuItem(mouse_status, None, enabled=False),
             pystray.Menu.SEPARATOR,
             pystray.MenuItem(
                 "图标显示设备",
                 pystray.Menu(
                     pystray.MenuItem(
                         "键盘",
-                        lambda icon, item: self._set_icon_device("keyboard"),
+                        on_icon_device("keyboard"),
                         checked=checked_icon_device("keyboard"),
                         radio=True,
                     ),
                     pystray.MenuItem(
                         "鼠标",
-                        lambda icon, item: self._set_icon_device("mouse"),
+                        on_icon_device("mouse"),
                         checked=checked_icon_device("mouse"),
                         radio=True,
                     ),
@@ -340,7 +386,7 @@ class TrayApp:
                     *[
                         pystray.MenuItem(
                             f"{p}%",
-                            lambda icon, item, p=p: self._set_low_threshold(p),
+                            on_threshold(p),
                             checked=checked_threshold(p),
                             radio=True,
                         )
@@ -350,8 +396,8 @@ class TrayApp:
             ),
             pystray.MenuItem(
                 "低电量通知",
-                lambda icon, item: self._toggle_notify(),
-                checked=lambda item: self.cfg.notify_low_battery,
+                on_toggle_notify,
+                checked=notify_checked,
             ),
             pystray.MenuItem(
                 "轮询间隔",
@@ -359,7 +405,7 @@ class TrayApp:
                     *[
                         pystray.MenuItem(
                             f"{sec} 秒",
-                            lambda icon, item, sec=sec: self._set_poll_interval(sec),
+                            on_poll(sec),
                             checked=checked_poll(sec),
                             radio=True,
                         )
@@ -369,18 +415,12 @@ class TrayApp:
             ),
             pystray.MenuItem(
                 "开机自启",
-                lambda icon, item: self._toggle_autostart(),
-                checked=lambda item: self.cfg.start_with_windows,
+                on_toggle_autostart,
+                checked=autostart_checked,
                 enabled=sys.platform == "win32",
             ),
-            pystray.MenuItem(
-                "立即刷新",
-                lambda icon, item: self._monitor.request_refresh(),
-            ),
-            pystray.MenuItem(
-                "退出",
-                lambda icon, item: self._shutdown(icon),
-            ),
+            pystray.MenuItem("立即刷新", on_refresh),
+            pystray.MenuItem("退出", on_quit),
         )
 
     def _shutdown(self, icon: object) -> None:
